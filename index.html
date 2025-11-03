@@ -1,471 +1,1805 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Apontamento de Produção</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Sistema de Controle de Fretes - SP</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
-            color: #1f2937;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .sync-status {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+
+        .sync-status.success {
+            background: rgba(39, 174, 96, 0.8);
+        }
+
+        .sync-status.error {
+            background: rgba(231, 76, 60, 0.8);
+        }
+
+        .sync-status.warning {
+            background: rgba(243, 156, 18, 0.8);
+        }
+
+        .sync-status.info {
+            background: rgba(52, 152, 219, 0.8);
+        }
+
+        .notificacao-tempo-real {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: rgba(39, 174, 96, 0.95);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-size: 0.9em;
+            font-weight: 600;
+            z-index: 9999;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .notificacao-tempo-real.mostrar {
+            transform: translateX(0);
+        }
+
+        .tempo-real-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #27ae60;
+            border-radius: 50%;
+            margin-left: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .tabs {
+            display: flex;
+            background: white;
+            border-radius: 10px 10px 0 0;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 0;
+        }
+
+        .tab {
+            padding: 15px 25px;
+            background: #ecf0f1;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            color: #2c3e50;
+            transition: all 0.3s ease;
+            flex: 1;
+            text-align: center;
+        }
+
+        .tab.active {
+            background: #3498db;
+            color: white;
+        }
+
+        .tab:hover:not(.active) {
+            background: #d5dbdb;
+        }
+
+        .tab-content {
+            display: none;
+            background: white;
+            padding: 30px;
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            border-left: 4px solid #3498db;
+        }
+
+        .form-section h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.4em;
+        }
+
+        .form-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .form-field {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-field label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #2c3e50;
+        }
+
+        .form-field input,
+        .form-field select {
+            padding: 12px;
+            border: 2px solid #bdc3c7;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-field input:focus,
+        .form-field select:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #219a52;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+            transform: translateY(-2px);
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-top: 25px;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table th {
+            background: #34495e;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        .table tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #27ae60;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #e74c3c;
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        @media (min-width: 1200px) {
+            .stats-container {
+                grid-template-columns: repeat(5, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .stats-container {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 15px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .stats-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px 15px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-top: 4px solid #3498db;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .stat-card h4 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 0.95em;
+            line-height: 1.2;
+        }
+
+        .stat-card .value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #3498db;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            line-height: 1.2;
+        }
+
+        .stat-card .value.monetary {
+            font-size: 1.5em;
+            line-height: 1.3;
+        }
+
+        @media (max-width: 1200px) {
+            .stat-card .value {
+                font-size: 1.5em;
+            }
+            
+            .stat-card .value.monetary {
+                font-size: 1.2em;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .stat-card .value {
+                font-size: 1.3em;
+            }
+            
+            .stat-card .value.monetary {
+                font-size: 1.1em;
+            }
+        }
+
+        .search-bar {
+            margin-bottom: 20px;
+        }
+
+        .search-bar input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #bdc3c7;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .form-group {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                padding: 10px;
+            }
         }
     </style>
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, getDocs, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        
-        // Exposing Firebase services globally for use in the main script
-        window.firebase = { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore, collection, addDoc, onSnapshot, query, getDocs, Timestamp, setLogLevel };
-    </script>
 </head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
-    <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-2xl border border-gray-200">
-        <h1 class="text-3xl font-bold text-center mb-6 text-gray-800">Apontamento de Produção</h1>
-        
-        <div class="text-center text-sm mb-4 text-gray-500">
-            <p>ID do Usuário: <span id="userIdDisplay" class="font-mono text-xs">Carregando...</span></p>
+<body>
+    <div class="header">
+        <h1>Sistema de Controle de Fretes</h1>
+        <p>Gestão Completa de Fretes - São Paulo</p>
+        <div id="sync-status" class="sync-status">🟢 Conectando...</div>
+    </div>
+
+    <div class="container">
+        <div class="tabs">
+            <button class="tab active" onclick="openTab(event, 'registro-fretes')">Registro de Fretes</button>
+            <button class="tab" onclick="openTab(event, 'cadastro-veiculos')">Tipos de Veículo</button>
+            <button class="tab" onclick="openTab(event, 'cadastro-transportadores')">Transportadores</button>
+            <button class="tab" onclick="openTab(event, 'relatorios')">Relatórios</button>
         </div>
 
-        <!-- Formulário de Apontamento -->
-        <div class="space-y-4">
-            <div>
-                <label for="responsavel" class="block text-sm font-medium text-gray-700">Nome do Responsável</label>
-                <input type="text" id="responsavel" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2" placeholder="Digite o nome aqui...">
-            </div>
-
-            <div>
-                <label for="codigoProduto" class="block text-sm font-medium text-gray-700">Código do Produto</label>
-                <select id="codigoProduto" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2">
-                    <option value="" selected disabled>Selecione um código...</option>
-                    <option value="CAC0001-C">CAC0001-C</option>
-                    <option value="CBC0010-C">CBC0010-C</option>
-                    <option value="CAL0002-C">CAL0002-C</option>
-                </select>
-            </div>
-
-            <div>
-                <label for="quantidade" class="block text-sm font-medium text-gray-700">Quantidade Produzida</label>
-                <input type="number" id="quantidade" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2" placeholder="Ex: 100">
-            </div>
-        </div>
-
-        <!-- Botões de Controle da Ordem -->
-        <div class="mt-6 flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
-            <button id="iniciarBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors shadow-lg">Iniciar Ordem</button>
-            <button id="pausarBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-6 rounded-lg transition-colors shadow-lg" disabled>Pausar</button>
-            <button id="finalizarBtn" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors shadow-lg" disabled>Finalizar Ordem</button>
-            <button id="exportarBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors shadow-lg">Download CSV</button>
-        </div>
-
-        <!-- Display de Informações -->
-        <div id="display" class="mt-8 bg-gray-50 p-6 rounded-lg border border-gray-200">
-            <h2 class="text-xl font-semibold mb-4 text-gray-800">Resumo da Ordem</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                    <span class="font-medium text-gray-700">Início:</span>
-                    <span id="horaInicio" class="font-light text-gray-600">--</span>
+        <!-- Tab: Registro de Fretes -->
+        <div id="registro-fretes" class="tab-content active">
+            <div class="stats-container">
+                <div class="stat-card">
+                    <h4>Total de Fretes</h4>
+                    <div class="value" id="total-fretes">0</div>
                 </div>
-                <div>
-                    <span class="font-medium text-gray-700">Fim:</span>
-                    <span id="horaFim" class="font-light text-gray-600">--</span>
+                <div class="stat-card">
+                    <h4>Total Custo Transportadora</h4>
+                    <div class="value monetary" id="valor-total-custo">R$ 0,00</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Total Recebido Cliente</h4>
+                    <div class="value monetary" id="valor-total-cliente">R$ 0,00</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Faturamento Líquido</h4>
+                    <div class="value monetary" id="faturamento-total">R$ 0,00</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Fretes Hoje</h4>
+                    <div class="value" id="fretes-hoje">0</div>
                 </div>
             </div>
-            <div class="mt-4">
-                <span class="font-medium text-gray-700">Tempo Líquido de Produção:</span>
-                <span id="tempoLiquido" class="font-bold text-green-600 text-lg">--</span>
+
+            <div class="form-section">
+                <h3>Novo Registro de Frete</h3>
+                <form id="form-frete">
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label for="data-frete">Data do Frete</label>
+                            <input type="date" id="data-frete" required>
+                        </div>
+                        <div class="form-field">
+                            <label for="transportador-frete">Transportador</label>
+                            <select id="transportador-frete" required>
+                                <option value="">Selecione um transportador</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label for="tipo-veiculo-frete">Tipo de Veículo</label>
+                            <select id="tipo-veiculo-frete" required>
+                                <option value="">Selecione um tipo de veículo</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label for="quantidade-nf">Quantidade de NFs</label>
+                            <input type="number" id="quantidade-nf" min="1" required placeholder="1" value="1">
+                        </div>
+                        <div class="form-field">
+                            <label for="valor-por-nf">Valor por NF (R$)</label>
+                            <input type="number" id="valor-por-nf" step="0.01" min="0" required placeholder="0,00">
+                            <small style="color: #666; margin-top: 4px;">Valor que você cobra do cliente por NF</small>
+                        </div>
+                        <div class="form-field">
+                            <label for="valor-total-calculado">Valor Total Calculado</label>
+                            <input type="text" id="valor-total-calculado" readonly style="background-color: #f8f9fa; font-weight: bold;">
+                        </div>
+                        <div class="form-field">
+                            <label for="status-cobertura">Status da Cobertura</label>
+                            <div id="status-cobertura" style="padding: 12px; border-radius: 6px; font-weight: bold; text-align: center;">
+                                -
+                            </div>
+                            <small style="color: #666; margin-top: 4px;">Compara se o valor cobrado do cliente cobre o custo da transportadora</small>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Registrar Frete</button>
+                </form>
             </div>
-            <div class="mt-2">
-                <span class="font-medium text-gray-700">Produtividade:</span>
-                <span id="produtividade" class="font-bold text-green-600 text-lg">--</span>
+
+            <div class="search-bar">
+                <input type="text" id="search-fretes" placeholder="Pesquisar fretes..." onkeyup="filtrarFretes()">
+            </div>
+
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Transportador</th>
+                            <th>Tipo de Veículo</th>
+                            <th>Qtd NFs</th>
+                            <th>Valor/NF Cliente</th>
+                            <th>Total Cliente</th>
+                            <th>Status Faturamento</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-fretes">
+                        <!-- Fretes serão inseridos aqui -->
+                    </tbody>
+                </table>
             </div>
         </div>
 
-        <!-- Registro de Pausas -->
-        <div id="pausasContainer" class="mt-8 bg-gray-50 p-6 rounded-lg border border-gray-200">
-            <h3 class="text-xl font-semibold mb-4 text-gray-800">Registro de Pausas</h3>
-            <ul id="listaPausas" class="list-disc pl-5 space-y-2 text-gray-600"></ul>
-        </div>
-        
-        <!-- Histórico de Apontamentos -->
-        <div id="historicoContainer" class="mt-8 bg-gray-50 p-6 rounded-lg border border-gray-200">
-            <h3 class="text-xl font-semibold mb-4 text-gray-800">Histórico de Apontamentos</h3>
-            <ul id="historicoLista" class="list-none space-y-4">
-                <li class="text-gray-500">Carregando histórico...</li>
-            </ul>
+        <!-- Tab: Cadastro de Tipos de Veículo -->
+        <div id="cadastro-veiculos" class="tab-content">
+            <div class="form-section">
+                <h3>Cadastrar Tipo de Veículo</h3>
+                <form id="form-veiculo">
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label for="nome-veiculo">Nome do Tipo de Veículo</label>
+                            <input type="text" id="nome-veiculo" required placeholder="Ex: Caminhão 3/4, Van, Truck, etc.">
+                        </div>
+                        <div class="form-field">
+                            <label for="descricao-veiculo">Descrição</label>
+                            <input type="text" id="descricao-veiculo" placeholder="Descrição opcional do veículo">
+                        </div>
+                        <div class="form-field">
+                            <label for="valor-padrao-veiculo">Valor Padrão (R$)</label>
+                            <input type="number" id="valor-padrao-veiculo" step="0.01" min="0" placeholder="0,00">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-success">Cadastrar Tipo de Veículo</button>
+                </form>
+            </div>
+
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Tipo de Veículo</th>
+                            <th>Descrição</th>
+                            <th>Valor Padrão</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-veiculos">
+                        <!-- Tipos de veículo serão inseridos aqui -->
+                    </tbody>
+                </table>
+            </div>
         </div>
 
-        <!-- Modal para Justificativa de Pausa (simulando um prompt) -->
-        <div id="justificativaModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
-            <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md border border-gray-200">
-                <h3 class="text-lg font-bold mb-4">Justificativa da Pausa</h3>
-                <textarea id="justificativaInput" rows="4" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2" placeholder="Motivo da pausa (ex: café, manutenção, etc.)"></textarea>
-                <div class="mt-4 flex justify-end space-x-2">
-                    <button id="salvarJustificativaBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg">Salvar</button>
-                    <button id="cancelarJustificativaBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg">Cancelar</button>
+        <!-- Tab: Cadastro de Transportadores -->
+        <div id="cadastro-transportadores" class="tab-content">
+            <div class="form-section">
+                <h3>Cadastrar Transportador</h3>
+                <form id="form-transportador">
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label for="nome-transportador">Nome do Transportador</label>
+                            <input type="text" id="nome-transportador" required placeholder="Nome ou empresa">
+                        </div>
+                        <div class="form-field">
+                            <label for="telefone-transportador">Telefone</label>
+                            <input type="tel" id="telefone-transportador" placeholder="(11) 99999-9999">
+                        </div>
+                        <div class="form-field">
+                            <label for="email-transportador">E-mail</label>
+                            <input type="email" id="email-transportador" placeholder="email@exemplo.com">
+                        </div>
+                        <div class="form-field">
+                            <label for="documento-transportador">CPF/CNPJ</label>
+                            <input type="text" id="documento-transportador" placeholder="000.000.000-00 ou 00.000.000/0001-00">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-success">Cadastrar Transportador</button>
+                </form>
+            </div>
+
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Telefone</th>
+                            <th>E-mail</th>
+                            <th>CPF/CNPJ</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-transportadores">
+                        <!-- Transportadores serão inseridos aqui -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tab: Relatórios -->
+        <div id="relatorios" class="tab-content">
+            <div class="form-section">
+                <h3>Filtros de Relatório</h3>
+                <div class="form-group">
+                    <div class="form-field">
+                        <label for="data-inicio">Data Início</label>
+                        <input type="date" id="data-inicio">
+                    </div>
+                    <div class="form-field">
+                        <label for="data-fim">Data Fim</label>
+                        <input type="date" id="data-fim">
+                    </div>
+                    <div class="form-field">
+                        <label for="filtro-transportador">Transportador</label>
+                        <select id="filtro-transportador">
+                            <option value="">Todos os transportadores</option>
+                        </select>
+                    </div>
+                    <div class="form-field">
+                        <label for="filtro-veiculo">Tipo de Veículo</label>
+                        <select id="filtro-veiculo">
+                            <option value="">Todos os tipos</option>
+                        </select>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="gerarRelatorio()">Gerar Relatório</button>
+                <button class="btn btn-success" onclick="exportarCSV()">Exportar CSV</button>
+            </div>
+
+            <div class="stats-container" id="stats-relatorio">
+                <div class="stat-card">
+                    <h4>Fretes no Período</h4>
+                    <div class="value" id="total-periodo">0</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Total Custo Transportadora</h4>
+                    <div class="value" id="total-custo-transportadora">R$ 0,00</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Total Recebido Cliente</h4>
+                    <div class="value" id="total-recebido-cliente">R$ 0,00</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Faturamento Líquido</h4>
+                    <div class="value" id="faturamento-liquido">R$ 0,00</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Margem de Lucro</h4>
+                    <div class="value" id="margem-lucro">0%</div>
                 </div>
             </div>
-        </div>
 
-        <!-- Modal de Aviso -->
-        <div id="avisoModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
-            <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm border border-gray-200 text-center">
-                <p id="avisoText" class="text-lg mb-4 text-gray-700">--</p>
-                <button id="fecharAvisoBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg">OK</button>
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Tipo de Veículo</th>
+                            <th>Quantidade</th>
+                            <th>Custo Total Transportadora</th>
+                            <th>Receita Total Cliente</th>
+                            <th>Faturamento Líquido</th>
+                            <th>Margem (%)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="relatorio-por-veiculo">
+                        <!-- Relatório por tipo de veículo -->
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 
-    <script type="module">
-        // Importa os módulos do Firebase expostos no objeto 'window'
-        const { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore, collection, addDoc, onSnapshot, query, getDocs, Timestamp, setLogLevel } = window.firebase;
-        
-        // Obtém referências para os elementos do DOM
-        const responsavelInput = document.getElementById('responsavel');
-        const codigoProdutoSelect = document.getElementById('codigoProduto');
-        const quantidadeInput = document.getElementById('quantidade');
-        
-        const iniciarBtn = document.getElementById('iniciarBtn');
-        const pausarBtn = document.getElementById('pausarBtn');
-        const finalizarBtn = document.getElementById('finalizarBtn');
-        const exportarBtn = document.getElementById('exportarBtn');
-
-        const horaInicioSpan = document.getElementById('horaInicio');
-        const horaFimSpan = document.getElementById('horaFim');
-        const tempoLiquidoSpan = document.getElementById('tempoLiquido');
-        const produtividadeSpan = document.getElementById('produtividade');
-        const listaPausasUl = document.getElementById('listaPausas');
-        const historicoListaUl = document.getElementById('historicoLista');
-        const userIdDisplay = document.getElementById('userIdDisplay');
-
-        const justificativaModal = document.getElementById('justificativaModal');
-        const justificativaInput = document.getElementById('justificativaInput');
-        const salvarJustificativaBtn = document.getElementById('salvarJustificativaBtn');
-        const cancelarJustificativaBtn = document.getElementById('cancelarJustificativaBtn');
-        
-        const avisoModal = document.getElementById('avisoModal');
-        const avisoText = document.getElementById('avisoText');
-        const fecharAvisoBtn = document.getElementById('fecharAvisoBtn');
-
-        // Variáveis de estado da aplicação
-        let inicioProducao = null;
-        let inicioPausa = null;
-        let tempoTotalPausas = 0;
-        let emPausa = false;
-        let pausasRegistradas = [];
-        let db, auth, userId;
-        
-        // Variáveis globais fornecidas pelo ambiente
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    <script>
+        // Configuração do Firebase
         const firebaseConfig = {
-          apiKey: "AIzaSyBDb1E_wHtmISvNG31RhlmP979890X7nxY",
-          authDomain: "apontamentoproducao-f141e.firebaseapp.com",
-          projectId: "apontamentoproducao-f141e",
-          storageBucket: "apontamentoproducao-f141e.firebasestorage.app",
-          messagingSenderId: "516590802933",
-          appId: "1:516590802933:web:756d1e76d981e51604b2bc",
-          measurementId: "G-3ZF5SLW87S"
+            apiKey: "AIzaSyDvSzoqtZbsdQaXijSc6GyiGHloq9h2W6k",
+            authDomain: "sistema-controle-fretes-sp.firebaseapp.com",
+            projectId: "sistema-controle-fretes-sp",
+            storageBucket: "sistema-controle-fretes-sp.firebasestorage.app",
+            messagingSenderId: "685842065795",
+            appId: "1:685842065795:web:1457914a0b241b649beeb6",
+            measurementId: "G-HPKS2XECZT"
         };
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-        // Função para exibir um aviso no modal customizado
-        function showAviso(message) {
-            avisoText.textContent = message;
-            avisoModal.classList.remove('hidden');
-        }
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
 
-        // Função utilitária para formatar o tempo em HH:MM:SS
-        function formatarTempo(ms) {
-            const segundos = Math.floor(ms / 1000);
-            const minutos = Math.floor(segundos / 60);
-            const horas = Math.floor(minutos / 60);
+        // Dados armazenados localmente (backup)
+        let fretes = [];
+        let tiposVeiculo = [];
+        let transportadores = [];
 
-            const s = segundos % 60;
-            const m = minutos % 60;
-            const h = horas % 24;
+        // Estado de sincronização
+        let isOnline = navigator.onLine;
+        let syncInProgress = false;
+        let listenersAtivos = false;
+        let usuarioId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        let heartbeatInterval = null;
 
-            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-        }
-        
-        // Inicialização e Autenticação do Firebase
-        async function initializeFirebase() {
+        // Listeners em tempo real
+        let unsubscribeFretes = null;
+        let unsubscribeTiposVeiculo = null;
+        let unsubscribeTransportadores = null;
+        let unsubscribeUsuarios = null;
+
+        // Funções do Firebase
+        async function salvarFreteFirebase(frete) {
             try {
-                const app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-                
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-                
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        userId = user.uid;
-                        userIdDisplay.textContent = userId;
-                        setupRealtimeListener();
-                    } else {
-                        userIdDisplay.textContent = 'Não autenticado';
-                    }
-                });
-
+                await db.collection('fretes').doc(frete.id.toString()).set(frete);
+                console.log('Frete salvo no Firebase:', frete.id);
+                return true;
             } catch (error) {
-                console.error("Erro ao inicializar Firebase ou autenticar:", error);
-                showAviso("Erro ao conectar com o banco de dados. Por favor, tente novamente.");
+                console.error('Erro ao salvar frete no Firebase:', error);
+                return false;
             }
         }
-        
-        // Listener para o histórico de apontamentos
-        function setupRealtimeListener() {
-            if (!userId) return;
-            // Altera o caminho para um local público
-            const producoesRef = collection(db, `artifacts/${appId}/public/data/producoes`);
-            const q = query(producoesRef);
+
+        async function salvarTipoVeiculoFirebase(tipoVeiculo) {
+            try {
+                await db.collection('tiposVeiculo').doc(tipoVeiculo.id.toString()).set(tipoVeiculo);
+                console.log('Tipo de veículo salvo no Firebase:', tipoVeiculo.id);
+                return true;
+            } catch (error) {
+                console.error('Erro ao salvar tipo de veículo no Firebase:', error);
+                return false;
+            }
+        }
+
+        async function salvarTransportadorFirebase(transportador) {
+            try {
+                await db.collection('transportadores').doc(transportador.id.toString()).set(transportador);
+                console.log('Transportador salvo no Firebase:', transportador.id);
+                return true;
+            } catch (error) {
+                console.error('Erro ao salvar transportador no Firebase:', error);
+                return false;
+            }
+        }
+
+        async function carregarDadosFirebase() {
+            try {
+                mostrarStatusSincronizacao('Carregando dados do servidor...', 'info');
+                
+                // Carregar fretes
+                const fretesSnapshot = await db.collection('fretes').get();
+                const fretesFirebase = [];
+                fretesSnapshot.forEach(doc => {
+                    fretesFirebase.push(doc.data());
+                });
+
+                // Carregar tipos de veículo
+                const veiculosSnapshot = await db.collection('tiposVeiculo').get();
+                const veiculosFirebase = [];
+                veiculosSnapshot.forEach(doc => {
+                    veiculosFirebase.push(doc.data());
+                });
+
+                // Carregar transportadores
+                const transportadoresSnapshot = await db.collection('transportadores').get();
+                const transportadoresFirebase = [];
+                transportadoresSnapshot.forEach(doc => {
+                    transportadoresFirebase.push(doc.data());
+                });
+
+                // Atualizar arrays locais
+                fretes = fretesFirebase;
+                tiposVeiculo = veiculosFirebase;
+                transportadores = transportadoresFirebase;
+
+                // Salvar backup local
+                salvarDadosLocal();
+
+                console.log('Dados carregados do Firebase:', {
+                    fretes: fretes.length,
+                    veiculos: tiposVeiculo.length,
+                    transportadores: transportadores.length
+                });
+
+                // Configurar listeners em tempo real após carregar dados iniciais
+                configurarListenersTempoReal();
+                
+                // Iniciar monitoramento de presença
+                iniciarMonitoramentoPresenca();
+
+                mostrarStatusSincronizacao('Dados sincronizados - Tempo real ativo!', 'success');
+                
+                return true;
+            } catch (error) {
+                console.error('Erro ao carregar dados do Firebase:', error);
+                mostrarStatusSincronizacao('Erro na sincronização. Usando dados locais.', 'error');
+                carregarDadosLocal();
+                return false;
+            }
+        }
+
+        // Configurar listeners em tempo real
+        function configurarListenersTempoReal() {
+            if (listenersAtivos) return; // Evitar duplicação de listeners
             
-            onSnapshot(q, (snapshot) => {
-                historicoListaUl.innerHTML = '';
-                if (snapshot.empty) {
-                    historicoListaUl.innerHTML = '<li class="text-gray-500">Nenhum apontamento registrado ainda.</li>';
+            try {
+                // Listener para fretes
+                unsubscribeFretes = db.collection('fretes').onSnapshot((snapshot) => {
+                    console.log('Atualização em tempo real: fretes');
+                    const fretesAtualizados = [];
+                    snapshot.forEach(doc => {
+                        fretesAtualizados.push(doc.data());
+                    });
+                    
+                    fretes = fretesAtualizados;
+                    salvarDadosLocal();
+                    atualizarListaFretes();
+                    atualizarEstatisticas();
+                    mostrarNotificacao('📊 Fretes atualizados em tempo real!');
+                }, (error) => {
+                    console.error('Erro no listener de fretes:', error);
+                });
+
+                // Listener para tipos de veículo
+                unsubscribeTiposVeiculo = db.collection('tiposVeiculo').onSnapshot((snapshot) => {
+                    console.log('Atualização em tempo real: tipos de veículo');
+                    const veiculosAtualizados = [];
+                    snapshot.forEach(doc => {
+                        veiculosAtualizados.push(doc.data());
+                    });
+                    
+                    tiposVeiculo = veiculosAtualizados;
+                    salvarDadosLocal();
+                    atualizarListaVeiculos();
+                    atualizarSelectVeiculos();
+                    mostrarNotificacao('🚛 Tipos de veículo atualizados!');
+                }, (error) => {
+                    console.error('Erro no listener de tipos de veículo:', error);
+                });
+
+                // Listener para transportadores
+                unsubscribeTransportadores = db.collection('transportadores').onSnapshot((snapshot) => {
+                    console.log('Atualização em tempo real: transportadores');
+                    const transportadoresAtualizados = [];
+                    snapshot.forEach(doc => {
+                        transportadoresAtualizados.push(doc.data());
+                    });
+                    
+                    transportadores = transportadoresAtualizados;
+                    salvarDadosLocal();
+                    atualizarListaTransportadores();
+                    atualizarSelectTransportadores();
+                    mostrarNotificacao('🚚 Transportadores atualizados!');
+                }, (error) => {
+                    console.error('Erro no listener de transportadores:', error);
+                });
+
+                listenersAtivos = true;
+                console.log('Listeners em tempo real configurados com sucesso!');
+                
+            } catch (error) {
+                console.error('Erro ao configurar listeners em tempo real:', error);
+            }
+        }
+
+        // Parar listeners em tempo real
+        async function pararListenersTempoReal() {
+            if (unsubscribeFretes) {
+                unsubscribeFretes();
+                unsubscribeFretes = null;
+            }
+            if (unsubscribeTiposVeiculo) {
+                unsubscribeTiposVeiculo();
+                unsubscribeTiposVeiculo = null;
+            }
+            if (unsubscribeTransportadores) {
+                unsubscribeTransportadores();
+                unsubscribeTransportadores = null;
+            }
+            
+            // Parar monitoramento de presença
+            await pararMonitoramentoPresenca();
+            
+            listenersAtivos = false;
+            console.log('Listeners em tempo real parados');
+        }
+
+        // Função para mostrar notificações discretas
+        function mostrarNotificacao(mensagem) {
+            const notificacao = document.createElement('div');
+            notificacao.className = 'notificacao-tempo-real';
+            notificacao.textContent = mensagem;
+            
+            document.body.appendChild(notificacao);
+            
+            // Mostrar a notificação
+            setTimeout(() => {
+                notificacao.classList.add('mostrar');
+            }, 100);
+            
+            // Remover após 3 segundos
+            setTimeout(() => {
+                notificacao.classList.remove('mostrar');
+                setTimeout(() => {
+                    if (notificacao.parentNode) {
+                        notificacao.parentNode.removeChild(notificacao);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        // Gerenciamento de presença de usuários
+        async function iniciarMonitoramentoPresenca() {
+            try {
+                // Registrar usuário como online
+                await db.collection('usuariosOnline').doc(usuarioId).set({
+                    id: usuarioId,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    ultimaAtividade: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                // Listener para contar usuários online
+                unsubscribeUsuarios = db.collection('usuariosOnline').onSnapshot((snapshot) => {
+                    const usuariosOnline = snapshot.size;
+                    atualizarContadorUsuarios(usuariosOnline);
+                });
+
+                // Heartbeat para manter presença
+                heartbeatInterval = setInterval(async () => {
+                    try {
+                        await db.collection('usuariosOnline').doc(usuarioId).update({
+                            ultimaAtividade: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    } catch (error) {
+                        console.error('Erro no heartbeat:', error);
+                    }
+                }, 30000); // A cada 30 segundos
+
+                // Limpar usuários inativos (mais de 2 minutos)
+                setInterval(async () => {
+                    try {
+                        const cutoff = new Date(Date.now() - 2 * 60 * 1000); // 2 minutos atrás
+                        const snapshot = await db.collection('usuariosOnline')
+                            .where('ultimaAtividade', '<', cutoff)
+                            .get();
+                        
+                        const batch = db.batch();
+                        snapshot.forEach(doc => {
+                            batch.delete(doc.ref);
+                        });
+                        
+                        if (!snapshot.empty) {
+                            await batch.commit();
+                            console.log(`Removidos ${snapshot.size} usuários inativos`);
+                        }
+                    } catch (error) {
+                        console.error('Erro ao limpar usuários inativos:', error);
+                    }
+                }, 60000); // A cada 1 minuto
+
+            } catch (error) {
+                console.error('Erro ao iniciar monitoramento de presença:', error);
+            }
+        }
+
+        function atualizarContadorUsuarios(count) {
+            const statusDiv = document.getElementById('sync-status');
+            if (statusDiv && listenersAtivos) {
+                let statusTexto = '🟢 Tempo Real Ativo';
+                if (count > 1) {
+                    statusTexto += ` (${count} usuários online)`;
                 }
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    const li = document.createElement('li');
-                    li.classList.add('p-4', 'bg-gray-100', 'rounded-lg', 'border', 'border-gray-200');
-                    li.innerHTML = `
-                        <p class="font-semibold text-gray-800">${data.responsavel} - ${data.codigoProduto}</p>
-                        <p class="text-sm text-gray-600"><strong>Quantidade:</strong> ${data.quantidade}</p>
-                        <p class="text-sm text-gray-600"><strong>Tempo Líquido:</strong> ${data.tempoLiquidoFormatado}</p>
-                        <p class="text-sm text-gray-600"><strong>Produtividade:</strong> ${data.produtividade.toFixed(2)} pçs/hora</p>
-                        <p class="text-xs italic text-gray-400">Finalizado em: ${data.dataFinalizacao.toDate().toLocaleString('pt-BR')}</p>
-                    `;
-                    historicoListaUl.appendChild(li);
+                statusDiv.innerHTML = statusTexto + '<span class="tempo-real-indicator"></span>';
+            }
+        }
+
+        async function pararMonitoramentoPresenca() {
+            // Parar heartbeat
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+                heartbeatInterval = null;
+            }
+
+            // Parar listener de usuários
+            if (unsubscribeUsuarios) {
+                unsubscribeUsuarios();
+                unsubscribeUsuarios = null;
+            }
+
+            // Remover usuário da lista de online
+            try {
+                await db.collection('usuariosOnline').doc(usuarioId).delete();
+            } catch (error) {
+                console.error('Erro ao remover usuário online:', error);
+            }
+        }
+
+        async function excluirFreteFirebase(id) {
+            try {
+                await db.collection('fretes').doc(id.toString()).delete();
+                console.log('Frete excluído do Firebase:', id);
+                return true;
+            } catch (error) {
+                console.error('Erro ao excluir frete do Firebase:', error);
+                return false;
+            }
+        }
+
+        async function excluirTipoVeiculoFirebase(id) {
+            try {
+                await db.collection('tiposVeiculo').doc(id.toString()).delete();
+                console.log('Tipo de veículo excluído do Firebase:', id);
+                return true;
+            } catch (error) {
+                console.error('Erro ao excluir tipo de veículo do Firebase:', error);
+                return false;
+            }
+        }
+
+        async function excluirTransportadorFirebase(id) {
+            try {
+                await db.collection('transportadores').doc(id.toString()).delete();
+                console.log('Transportador excluído do Firebase:', id);
+                return true;
+            } catch (error) {
+                console.error('Erro ao excluir transportador do Firebase:', error);
+                return false;
+            }
+        }
+
+        // Função para mostrar status de sincronização
+        function mostrarStatusSincronizacao(mensagem, tipo = 'info') {
+            const statusDiv = document.getElementById('sync-status');
+            if (statusDiv) {
+                statusDiv.innerHTML = mensagem + (listenersAtivos ? '<span class="tempo-real-indicator"></span>' : '');
+                statusDiv.className = `sync-status ${tipo}`;
+                setTimeout(() => {
+                    const statusTexto = isOnline ? 
+                        (listenersAtivos ? '🟢 Tempo Real Ativo' : '🟢 Online') : 
+                        '🔴 Offline';
+                    statusDiv.innerHTML = statusTexto + (listenersAtivos ? '<span class="tempo-real-indicator"></span>' : '');
+                    statusDiv.className = 'sync-status';
+                }, 3000);
+            }
+        }
+
+        // Função para salvar dados localmente (backup)
+        function salvarDadosLocal() {
+            localStorage.setItem('fretes', JSON.stringify(fretes));
+            localStorage.setItem('tiposVeiculo', JSON.stringify(tiposVeiculo));
+            localStorage.setItem('transportadores', JSON.stringify(transportadores));
+        }
+
+        // Função para carregar dados locais
+        function carregarDadosLocal() {
+            fretes = JSON.parse(localStorage.getItem('fretes')) || [];
+            tiposVeiculo = JSON.parse(localStorage.getItem('tiposVeiculo')) || [];
+            transportadores = JSON.parse(localStorage.getItem('transportadores')) || [];
+        }
+
+        // Função unificada para salvar dados
+        async function salvarDados() {
+            salvarDadosLocal(); // Sempre salvar local como backup
+            
+            if (isOnline && !syncInProgress) {
+                // Sincronização em background não bloqueia a interface
+                syncInProgress = true;
+                try {
+                    // Não aguarda a sincronização para não travar a interface
+                    setTimeout(async () => {
+                        try {
+                            // Sincronizar dados modificados seria implementado aqui
+                            // Por simplicidade, estamos salvando individualmente em cada operação
+                        } catch (error) {
+                            console.error('Erro na sincronização em background:', error);
+                        } finally {
+                            syncInProgress = false;
+                        }
+                    }, 100);
+                } catch (error) {
+                    syncInProgress = false;
+                }
+            }
+        }
+
+        // Detectar mudanças na conectividade
+        window.addEventListener('online', () => {
+            isOnline = true;
+            mostrarStatusSincronizacao('Reconectado! Configurando tempo real...', 'success');
+            carregarDadosFirebase().then(() => {
+                atualizarTodasAsListas();
+            });
+        });
+
+        window.addEventListener('offline', async () => {
+            isOnline = false;
+            await pararListenersTempoReal();
+            mostrarStatusSincronizacao('Offline - Dados salvos localmente', 'warning');
+        });
+
+        // Parar listeners quando a página é fechada
+        window.addEventListener('beforeunload', async () => {
+            await pararListenersTempoReal();
+        });
+
+        // Detectar quando a aba fica inativa/ativa para otimizar recursos
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                console.log('Aba inativa - listeners mantidos');
+            } else {
+                console.log('Aba ativa - verificando sincronização');
+                if (isOnline && !listenersAtivos) {
+                    carregarDadosFirebase();
+                }
+            }
+        });
+
+        // Função para atualizar todas as listas
+        function atualizarTodasAsListas() {
+            atualizarListaVeiculos();
+            atualizarListaTransportadores();
+            atualizarListaFretes();
+            atualizarSelectVeiculos();
+            atualizarSelectTransportadores();
+            atualizarEstatisticas();
+        }
+
+        // Dados armazenados localmente (mantido para compatibilidade)
+        // As variáveis já foram declaradas acima
+
+        // Função para alternar entre abas
+        function openTab(evt, tabName) {
+            var i, tabcontent, tabs;
+            tabcontent = document.getElementsByClassName("tab-content");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].classList.remove("active");
+            }
+            tabs = document.getElementsByClassName("tab");
+            for (i = 0; i < tabs.length; i++) {
+                tabs[i].classList.remove("active");
+            }
+            document.getElementById(tabName).classList.add("active");
+            evt.currentTarget.classList.add("active");
+        }
+
+        // Função para salvar dados no localStorage
+        function salvarDados() {
+            localStorage.setItem('fretes', JSON.stringify(fretes));
+            localStorage.setItem('tiposVeiculo', JSON.stringify(tiposVeiculo));
+            localStorage.setItem('transportadores', JSON.stringify(transportadores));
+        }
+
+        // Função para mostrar alertas
+        function mostrarAlerta(mensagem, tipo) {
+            const alertaDiv = document.createElement('div');
+            alertaDiv.className = `alert alert-${tipo}`;
+            alertaDiv.textContent = mensagem;
+            
+            const container = document.querySelector('.container');
+            container.insertBefore(alertaDiv, container.firstChild);
+            
+            setTimeout(() => {
+                alertaDiv.remove();
+            }, 3000);
+        }
+
+        // Função para formatar valor em moeda brasileira
+        function formatarMoeda(valor) {
+            return new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+            }).format(valor);
+        }
+
+        // Função para formatar data
+        function formatarData(data) {
+            return new Date(data + 'T00:00:00').toLocaleDateString('pt-BR');
+        }
+
+        // CADASTRO DE TIPOS DE VEÍCULO
+        document.getElementById('form-veiculo').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const nome = document.getElementById('nome-veiculo').value;
+            const descricao = document.getElementById('descricao-veiculo').value;
+            const valorPadrao = parseFloat(document.getElementById('valor-padrao-veiculo').value) || 0;
+            
+            // Verificar se já existe
+            if (tiposVeiculo.some(v => v.nome.toLowerCase() === nome.toLowerCase())) {
+                mostrarAlerta('Este tipo de veículo já está cadastrado!', 'error');
+                return;
+            }
+            
+            const novoTipo = {
+                id: Date.now(),
+                nome: nome,
+                descricao: descricao,
+                valorPadrao: valorPadrao
+            };
+            
+            // Salvar localmente primeiro
+            tiposVeiculo.push(novoTipo);
+            salvarDados();
+            
+            // Tentar salvar no Firebase
+            if (isOnline) {
+                const sucesso = await salvarTipoVeiculoFirebase(novoTipo);
+                if (sucesso) {
+                    mostrarStatusSincronizacao('Tipo de veículo sincronizado!', 'success');
+                }
+            }
+            
+            atualizarListaVeiculos();
+            atualizarSelectVeiculos();
+            this.reset();
+            mostrarAlerta('Tipo de veículo cadastrado com sucesso!', 'success');
+        });
+
+        // CADASTRO DE TRANSPORTADORES
+        document.getElementById('form-transportador').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const nome = document.getElementById('nome-transportador').value;
+            const telefone = document.getElementById('telefone-transportador').value;
+            const email = document.getElementById('email-transportador').value;
+            const documento = document.getElementById('documento-transportador').value;
+            
+            // Verificar se já existe
+            if (transportadores.some(t => t.nome.toLowerCase() === nome.toLowerCase())) {
+                mostrarAlerta('Este transportador já está cadastrado!', 'error');
+                return;
+            }
+            
+            const novoTransportador = {
+                id: Date.now(),
+                nome: nome,
+                telefone: telefone,
+                email: email,
+                documento: documento
+            };
+            
+            // Salvar localmente primeiro
+            transportadores.push(novoTransportador);
+            salvarDados();
+            
+            // Tentar salvar no Firebase
+            if (isOnline) {
+                const sucesso = await salvarTransportadorFirebase(novoTransportador);
+                if (sucesso) {
+                    mostrarStatusSincronizacao('Transportador sincronizado!', 'success');
+                }
+            }
+            
+            atualizarListaTransportadores();
+            atualizarSelectTransportadores();
+            this.reset();
+            mostrarAlerta('Transportador cadastrado com sucesso!', 'success');
+        });
+
+        // REGISTRO DE FRETES
+        document.getElementById('form-frete').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const data = document.getElementById('data-frete').value;
+            const transportadorId = document.getElementById('transportador-frete').value;
+            const tipoVeiculoId = document.getElementById('tipo-veiculo-frete').value;
+            const quantidadeNF = parseInt(document.getElementById('quantidade-nf').value) || 1;
+            const valorPorNF = parseFloat(document.getElementById('valor-por-nf').value) || 0;
+            
+            const transportador = transportadores.find(t => t.id == transportadorId);
+            const tipoVeiculo = tiposVeiculo.find(v => v.id == tipoVeiculoId);
+            
+            // Calcular valores e lucro
+            const valorTotalCliente = quantidadeNF * valorPorNF;
+            const custoTransportadora = tipoVeiculo.valorPadrao;
+            const lucro = valorTotalCliente - custoTransportadora;
+            const temLucro = lucro >= 0;
+            
+            const novoFrete = {
+                id: Date.now(),
+                data: data,
+                transportador: transportador,
+                tipoVeiculo: tipoVeiculo,
+                quantidadeNF: quantidadeNF,
+                valorPorNF: valorPorNF,
+                valorTotalCliente: valorTotalCliente,
+                valorTotal: valorTotalCliente, // Para compatibilidade
+                valor: valorTotalCliente, // Para compatibilidade
+                custoTransportadora: custoTransportadora,
+                lucro: lucro,
+                temLucro: temLucro
+            };
+            
+            // Salvar localmente primeiro
+            fretes.push(novoFrete);
+            salvarDados();
+            
+            // Tentar salvar no Firebase
+            if (isOnline) {
+                const sucesso = await salvarFreteFirebase(novoFrete);
+                if (sucesso) {
+                    mostrarStatusSincronizacao('Frete sincronizado!', 'success');
+                }
+            }
+            
+            atualizarListaFretes();
+            atualizarEstatisticas();
+            this.reset();
+            // Definir valores padrão
+            document.getElementById('data-frete').value = new Date().toISOString().split('T')[0];
+            document.getElementById('quantidade-nf').value = '1';
+            document.getElementById('valor-total-calculado').value = '';
+            document.getElementById('status-cobertura').innerHTML = '-';
+            document.getElementById('status-cobertura').style.backgroundColor = '#f8f9fa';
+            document.getElementById('status-cobertura').style.color = '#333';
+            mostrarAlerta('Frete registrado com sucesso!', 'success');
+        });
+
+        // Função para atualizar lista de veículos
+        function atualizarListaVeiculos() {
+            const tbody = document.getElementById('lista-veiculos');
+            tbody.innerHTML = '';
+            
+            tiposVeiculo.forEach(veiculo => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${veiculo.nome}</td>
+                    <td>${veiculo.descricao || '-'}</td>
+                    <td>${formatarMoeda(veiculo.valorPadrao)}</td>
+                    <td>
+                        <button class="btn btn-danger" onclick="excluirVeiculo(${veiculo.id})">Excluir</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Função para atualizar lista de transportadores
+        function atualizarListaTransportadores() {
+            const tbody = document.getElementById('lista-transportadores');
+            tbody.innerHTML = '';
+            
+            transportadores.forEach(transportador => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${transportador.nome}</td>
+                    <td>${transportador.telefone || '-'}</td>
+                    <td>${transportador.email || '-'}</td>
+                    <td>${transportador.documento || '-'}</td>
+                    <td>
+                        <button class="btn btn-danger" onclick="excluirTransportador(${transportador.id})">Excluir</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Função para atualizar lista de fretes
+        function atualizarListaFretes() {
+            const tbody = document.getElementById('lista-fretes');
+            tbody.innerHTML = '';
+            
+            fretes.sort((a, b) => new Date(b.data) - new Date(a.data)).forEach(frete => {
+                const tr = document.createElement('tr');
+                
+                // Para compatibilidade com fretes antigos e novos
+                const quantidadeNF = frete.quantidadeNF || 1;
+                const valorPorNF = frete.valorPorNF || (frete.valor ? frete.valor / quantidadeNF : 0);
+                const valorTotalCliente = frete.valorTotalCliente || frete.valorTotal || frete.valor || 0;
+                const custoTransportadora = frete.custoTransportadora || frete.tipoVeiculo.valorPadrao;
+                const lucro = frete.lucro !== undefined ? frete.lucro : (valorTotalCliente - custoTransportadora);
+                const temLucro = frete.temLucro !== undefined ? frete.temLucro : (lucro >= 0);
+                
+                const statusTexto = temLucro ? 
+                    `✅ Lucro: ${formatarMoeda(lucro)}` : 
+                    `❌ Prejuízo: ${formatarMoeda(Math.abs(lucro))}`;
+                
+                const statusCor = temLucro ? '#d4edda' : '#f8d7da';
+                
+                tr.innerHTML = `
+                    <td>${formatarData(frete.data)}</td>
+                    <td>${frete.transportador.nome}</td>
+                    <td>${frete.tipoVeiculo.nome}<br><small style="color: #666;">Custo: ${formatarMoeda(custoTransportadora)}</small></td>
+                    <td>${quantidadeNF}</td>
+                    <td>${formatarMoeda(valorPorNF)}</td>
+                    <td><strong>${formatarMoeda(valorTotalCliente)}</strong></td>
+                    <td style="background-color: ${statusCor}; padding: 8px; border-radius: 4px; font-size: 12px;">
+                        ${statusTexto}
+                    </td>
+                    <td>
+                        <button class="btn btn-danger" onclick="excluirFrete(${frete.id})">Excluir</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Função para atualizar selects
+        function atualizarSelectVeiculos() {
+            const selects = ['tipo-veiculo-frete', 'filtro-veiculo'];
+            selects.forEach(selectId => {
+                const select = document.getElementById(selectId);
+                const opcaoVazia = select.children[0];
+                select.innerHTML = '';
+                select.appendChild(opcaoVazia);
+                
+                tiposVeiculo.forEach(veiculo => {
+                    const option = document.createElement('option');
+                    option.value = veiculo.id;
+                    option.textContent = veiculo.nome;
+                    select.appendChild(option);
                 });
             });
         }
-        
-        // Event listener para o botão de fechar o aviso
-        fecharAvisoBtn.addEventListener('click', () => {
-            avisoModal.classList.add('hidden');
-        });
 
-        // Event listener para o botão Iniciar Ordem
-        iniciarBtn.addEventListener('click', () => {
-            if (!responsavelInput.value || !codigoProdutoSelect.value || !quantidadeInput.value) {
-                showAviso("Por favor, preencha todos os campos antes de iniciar a ordem.");
-                return;
-            }
-
-            inicioProducao = new Date().getTime();
-            horaInicioSpan.textContent = new Date().toLocaleString('pt-BR');
-            pausasRegistradas = [];
-            tempoTotalPausas = 0;
-
-            iniciarBtn.disabled = true;
-            pausarBtn.disabled = false;
-            finalizarBtn.disabled = false;
-        });
-
-        // Event listener para o botão Pausar/Continuar
-        pausarBtn.addEventListener('click', () => {
-            if (!emPausa) {
-                justificativaModal.classList.remove('hidden');
-            } else {
-                const fimPausa = new Date().getTime();
-                const duracaoPausa = fimPausa - inicioPausa;
-                tempoTotalPausas += duracaoPausa;
+        function atualizarSelectTransportadores() {
+            const selects = ['transportador-frete', 'filtro-transportador'];
+            selects.forEach(selectId => {
+                const select = document.getElementById(selectId);
+                const opcaoVazia = select.children[0];
+                select.innerHTML = '';
+                select.appendChild(opcaoVazia);
                 
-                // Adiciona o tempo final da última pausa registrada
-                if(pausasRegistradas.length > 0) {
-                    pausasRegistradas[pausasRegistradas.length - 1].fimPausa = fimPausa;
-                }
-
-                emPausa = false;
-                pausarBtn.textContent = 'Pausar';
-                pausarBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
-                pausarBtn.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
-                
-                const lastPauseItem = listaPausasUl.lastElementChild;
-                if (lastPauseItem) {
-                    lastPauseItem.innerHTML += `<br><span class="text-sm italic text-gray-500">Retorno: ${new Date(fimPausa).toLocaleString('pt-BR')}</span>`;
-                }
-            }
-        });
-
-        // Event listener para o botão Salvar Justificativa (do modal)
-        salvarJustificativaBtn.addEventListener('click', () => {
-            const justificativa = justificativaInput.value;
-            if (justificativa.trim() === '') {
-                showAviso("A justificativa não pode estar vazia.");
-                return;
-            }
-
-            inicioPausa = new Date().getTime();
-            emPausa = true;
-            pausarBtn.textContent = 'Continuar';
-            pausarBtn.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
-            pausarBtn.classList.add('bg-green-600', 'hover:bg-green-700');
-
-            // Adiciona a pausa à lista local e visual
-            pausasRegistradas.push({ inicioPausa: inicioPausa, justificativa });
-            const li = document.createElement('li');
-            li.innerHTML = `Pausa: ${justificativa} - <span class="text-sm italic text-gray-500">Início: ${new Date(inicioPausa).toLocaleString('pt-BR')}</span>`;
-            listaPausasUl.appendChild(li);
-
-            justificativaInput.value = '';
-            justificativaModal.classList.add('hidden');
-        });
-
-        // Event listener para o botão Cancelar Justificativa (do modal)
-        cancelarJustificativaBtn.addEventListener('click', () => {
-            justificativaInput.value = '';
-            justificativaModal.classList.add('hidden');
-        });
-
-        // Event listener para o botão Finalizar Ordem
-        finalizarBtn.addEventListener('click', async () => {
-            if (!inicioProducao) {
-                showAviso("A ordem ainda não foi iniciada.");
-                return;
-            }
-            if (!userId) {
-                showAviso("Aguarde a autenticação do usuário antes de finalizar.");
-                return;
-            }
-
-            if (emPausa) {
-                const fimPausa = new Date().getTime();
-                const duracaoPausa = fimPausa - inicioPausa;
-                tempoTotalPausas += duracaoPausa;
-                emPausa = false;
-                if(pausasRegistradas.length > 0) {
-                    pausasRegistradas[pausasRegistradas.length - 1].fimPausa = fimPausa;
-                }
-            }
-
-            const fimProducao = new Date().getTime();
-            horaFimSpan.textContent = new Date(fimProducao).toLocaleString('pt-BR');
-
-            const tempoBruto = fimProducao - inicioProducao;
-            const tempoLiquido = tempoBruto - tempoTotalPausas;
-            const tempoLiquidoFormatado = formatarTempo(tempoLiquido);
-            tempoLiquidoSpan.textContent = tempoLiquidoFormatado;
-
-            const quantidade = parseFloat(quantidadeInput.value);
-            const tempoLiquidoEmHoras = tempoLiquido / (1000 * 60 * 60);
-            const produtividade = tempoLiquidoEmHoras > 0 ? quantidade / tempoLiquidoEmHoras : 0;
-            produtividadeSpan.textContent = `${produtividade.toFixed(2)} peças/hora`;
-
-            const producaoData = {
-                responsavel: responsavelInput.value,
-                codigoProduto: codigoProdutoSelect.value,
-                quantidade: quantidade,
-                dataInicio: Timestamp.fromMillis(inicioProducao),
-                dataFim: Timestamp.fromMillis(fimProducao),
-                tempoLiquidoMs: tempoLiquido,
-                tempoLiquidoFormatado: tempoLiquidoFormatado,
-                produtividade: produtividade,
-                pausas: pausasRegistradas.map(p => ({
-                    justificativa: p.justificativa,
-                    inicioPausa: Timestamp.fromMillis(p.inicioPausa),
-                    fimPausa: p.fimPausa ? Timestamp.fromMillis(p.fimPausa) : null,
-                })),
-                dataFinalizacao: Timestamp.now()
-            };
-
-            try {
-                // Altera o caminho para um local público
-                const docRef = await addDoc(collection(db, `artifacts/${appId}/public/data/producoes`), producaoData);
-                console.log("Documento escrito com ID: ", docRef.id);
-            } catch (e) {
-                console.error("Erro ao adicionar documento: ", e);
-                showAviso("Erro ao salvar os dados. Verifique a conexão.");
-            }
-
-            iniciarBtn.disabled = false;
-            pausarBtn.disabled = true;
-            finalizarBtn.disabled = true;
-            pausarBtn.textContent = 'Pausar';
-            pausarBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
-            pausarBtn.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
-            
-            inicioProducao = null;
-            inicioPausa = null;
-            tempoTotalPausas = 0;
-            emPausa = false;
-            pausasRegistradas = [];
-
-            responsavelInput.value = '';
-            codigoProdutoSelect.value = '';
-            quantidadeInput.value = '';
-            listaPausasUl.innerHTML = '';
-        });
-        
-        // Event listener para o botão de exportar
-        exportarBtn.addEventListener('click', async () => {
-            if (!userId) {
-                showAviso("Aguarde a autenticação do usuário para exportar os dados.");
-                return;
-            }
-            
-            try {
-                // Altera o caminho para um local público
-                const producoesRef = collection(db, `artifacts/${appId}/public/data/producoes`);
-                const snapshot = await getDocs(producoesRef);
-                
-                if (snapshot.empty) {
-                    showAviso("Não há dados para exportar.");
-                    return;
-                }
-                
-                let csv = 'Responsavel,Codigo do Produto,Quantidade,Data de Inicio,Hora de Inicio,Data de Fim,Hora de Fim,Tempo Liquido,Produtividade,Pausas (Motivo),Pausas (Duracao)\n';
-                
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    
-                    const dataInicio = data.dataInicio.toDate();
-                    const dataInicioStr = dataInicio.toLocaleDateString('pt-BR');
-                    const horaInicioStr = dataInicio.toLocaleTimeString('pt-BR');
-                    
-                    const dataFim = data.dataFim.toDate();
-                    const dataFimStr = dataFim.toLocaleDateString('pt-BR');
-                    const horaFimStr = dataFim.toLocaleTimeString('pt-BR');
-
-                    const motivosPausas = data.pausas.map(p => p.justificativa).join('; ');
-                    const duracoesPausas = data.pausas.map(p => {
-                        const inicio = p.inicioPausa.toDate();
-                        const fim = p.fimPausa ? p.fimPausa.toDate() : data.dataFim.toDate();
-                        return formatarTempo(fim - inicio);
-                    }).join('; ');
-                    
-                    csv += `"${data.responsavel}","${data.codigoProduto}",${data.quantidade},"${dataInicioStr}","${horaInicioStr}","${dataFimStr}","${horaFimStr}","${data.tempoLiquidoFormatado}",${data.produtividade.toFixed(2)},"${motivosPausas}","${duracoesPausas}"\n`;
+                transportadores.forEach(transportador => {
+                    const option = document.createElement('option');
+                    option.value = transportador.id;
+                    option.textContent = transportador.nome;
+                    select.appendChild(option);
                 });
+            });
+        }
+
+        // Função para atualizar estatísticas
+        function atualizarEstatisticas() {
+            const totalFretes = fretes.length;
+            
+            // Calcular totais financeiros
+            let totalCustoTransportadora = 0;
+            let totalRecebidoCliente = 0;
+            
+            fretes.forEach(frete => {
+                const custoTransportadora = frete.custoTransportadora || frete.tipoVeiculo.valorPadrao;
+                const recebidoCliente = frete.valorTotalCliente || frete.valorTotal || frete.valor || 0;
                 
-                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.setAttribute('href', url);
-                a.setAttribute('download', 'historico_apontamentos.csv');
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
+                totalCustoTransportadora += custoTransportadora;
+                totalRecebidoCliente += recebidoCliente;
+            });
+            
+            const faturamentoLiquido = totalRecebidoCliente - totalCustoTransportadora;
+            
+            const hoje = new Date().toISOString().split('T')[0];
+            const fretesHoje = fretes.filter(frete => frete.data === hoje).length;
+            
+            // Atualizar os cards
+            document.getElementById('total-fretes').textContent = totalFretes;
+            document.getElementById('valor-total-custo').textContent = formatarMoeda(totalCustoTransportadora);
+            document.getElementById('valor-total-cliente').textContent = formatarMoeda(totalRecebidoCliente);
+            document.getElementById('faturamento-total').textContent = formatarMoeda(faturamentoLiquido);
+            document.getElementById('fretes-hoje').textContent = fretesHoje;
+            
+            // Aplicar cores ao faturamento líquido
+            const faturamentoElement = document.getElementById('faturamento-total');
+            const faturamentoCard = faturamentoElement.parentElement;
+            
+            if (faturamentoLiquido >= 0) {
+                faturamentoCard.style.borderTop = '4px solid #27ae60';
+                faturamentoElement.style.color = '#27ae60';
+            } else {
+                faturamentoCard.style.borderTop = '4px solid #e74c3c';
+                faturamentoElement.style.color = '#e74c3c';
+            }
+        }
+
+        // Função para filtrar fretes
+        function filtrarFretes() {
+            const filtro = document.getElementById('search-fretes').value.toLowerCase();
+            const linhas = document.querySelectorAll('#lista-fretes tr');
+            
+            linhas.forEach(linha => {
+                const texto = linha.textContent.toLowerCase();
+                linha.style.display = texto.includes(filtro) ? '' : 'none';
+            });
+        }
+
+        // Função para excluir veículo
+        async function excluirVeiculo(id) {
+            if (confirm('Tem certeza que deseja excluir este tipo de veículo?')) {
+                // Excluir localmente primeiro
+                tiposVeiculo = tiposVeiculo.filter(v => v.id !== id);
+                salvarDados();
                 
-                showAviso("Histórico exportado com sucesso!");
+                // Tentar excluir do Firebase
+                if (isOnline) {
+                    const sucesso = await excluirTipoVeiculoFirebase(id);
+                    if (sucesso) {
+                        mostrarStatusSincronizacao('Exclusão sincronizada!', 'success');
+                    }
+                }
                 
-            } catch (error) {
-                console.error("Erro ao exportar dados:", error);
-                showAviso("Erro ao exportar dados. Tente novamente.");
+                atualizarListaVeiculos();
+                atualizarSelectVeiculos();
+                mostrarAlerta('Tipo de veículo excluído com sucesso!', 'success');
+            }
+        }
+
+        // Função para excluir transportador
+        async function excluirTransportador(id) {
+            if (confirm('Tem certeza que deseja excluir este transportador?')) {
+                // Excluir localmente primeiro
+                transportadores = transportadores.filter(t => t.id !== id);
+                salvarDados();
+                
+                // Tentar excluir do Firebase
+                if (isOnline) {
+                    const sucesso = await excluirTransportadorFirebase(id);
+                    if (sucesso) {
+                        mostrarStatusSincronizacao('Exclusão sincronizada!', 'success');
+                    }
+                }
+                
+                atualizarListaTransportadores();
+                atualizarSelectTransportadores();
+                mostrarAlerta('Transportador excluído com sucesso!', 'success');
+            }
+        }
+
+        // Função para excluir frete
+        async function excluirFrete(id) {
+            if (confirm('Tem certeza que deseja excluir este frete?')) {
+                // Excluir localmente primeiro
+                fretes = fretes.filter(f => f.id !== id);
+                salvarDados();
+                
+                // Tentar excluir do Firebase
+                if (isOnline) {
+                    const sucesso = await excluirFreteFirebase(id);
+                    if (sucesso) {
+                        mostrarStatusSincronizacao('Exclusão sincronizada!', 'success');
+                    }
+                }
+                
+                atualizarListaFretes();
+                atualizarEstatisticas();
+                mostrarAlerta('Frete excluído com sucesso!', 'success');
+            }
+        }
+
+        // Função para gerar relatório
+        function gerarRelatorio() {
+            const dataInicio = document.getElementById('data-inicio').value;
+            const dataFim = document.getElementById('data-fim').value;
+            const transportadorId = document.getElementById('filtro-transportador').value;
+            const veiculoId = document.getElementById('filtro-veiculo').value;
+            
+            let fretesFiltrados = fretes;
+            
+            if (dataInicio) {
+                fretesFiltrados = fretesFiltrados.filter(f => f.data >= dataInicio);
+            }
+            
+            if (dataFim) {
+                fretesFiltrados = fretesFiltrados.filter(f => f.data <= dataFim);
+            }
+            
+            if (transportadorId) {
+                fretesFiltrados = fretesFiltrados.filter(f => f.transportador.id == transportadorId);
+            }
+            
+            if (veiculoId) {
+                fretesFiltrados = fretesFiltrados.filter(f => f.tipoVeiculo.id == veiculoId);
+            }
+            
+            // Atualizar estatísticas do período
+            const totalPeriodo = fretesFiltrados.length;
+            
+            // Calcular totais financeiros
+            let totalCustoTransportadora = 0;
+            let totalRecebidoCliente = 0;
+            
+            fretesFiltrados.forEach(f => {
+                const custoTransportadora = f.custoTransportadora || f.tipoVeiculo.valorPadrao;
+                const recebidoCliente = f.valorTotalCliente || f.valorTotal || f.valor || 0;
+                
+                totalCustoTransportadora += custoTransportadora;
+                totalRecebidoCliente += recebidoCliente;
+            });
+            
+            const faturamentoLiquido = totalRecebidoCliente - totalCustoTransportadora;
+            const margemLucro = totalRecebidoCliente > 0 ? ((faturamentoLiquido / totalRecebidoCliente) * 100) : 0;
+            
+            // Atualizar os cards de estatísticas
+            document.getElementById('total-periodo').textContent = totalPeriodo;
+            document.getElementById('total-custo-transportadora').textContent = formatarMoeda(totalCustoTransportadora);
+            document.getElementById('total-custo-transportadora').className = 'value monetary';
+            document.getElementById('total-recebido-cliente').textContent = formatarMoeda(totalRecebidoCliente);
+            document.getElementById('total-recebido-cliente').className = 'value monetary';
+            document.getElementById('faturamento-liquido').textContent = formatarMoeda(faturamentoLiquido);
+            document.getElementById('faturamento-liquido').className = 'value monetary';
+            document.getElementById('margem-lucro').textContent = margemLucro.toFixed(1) + '%';
+            
+            // Aplicar cores ao faturamento líquido
+            const faturamentoCard = document.getElementById('faturamento-liquido').parentElement;
+            if (faturamentoLiquido >= 0) {
+                faturamentoCard.style.borderTop = '4px solid #27ae60';
+                document.getElementById('faturamento-liquido').style.color = '#27ae60';
+            } else {
+                faturamentoCard.style.borderTop = '4px solid #e74c3c';
+                document.getElementById('faturamento-liquido').style.color = '#e74c3c';
+            }
+            
+            // Aplicar cores à margem de lucro
+            const margemCard = document.getElementById('margem-lucro').parentElement;
+            if (margemLucro >= 20) {
+                margemCard.style.borderTop = '4px solid #27ae60';
+                document.getElementById('margem-lucro').style.color = '#27ae60';
+            } else if (margemLucro >= 10) {
+                margemCard.style.borderTop = '4px solid #f39c12';
+                document.getElementById('margem-lucro').style.color = '#f39c12';
+            } else {
+                margemCard.style.borderTop = '4px solid #e74c3c';
+                document.getElementById('margem-lucro').style.color = '#e74c3c';
+            }
+            
+            // Relatório por tipo de veículo
+            const relatorioPorVeiculo = {};
+            fretesFiltrados.forEach(frete => {
+                const tipo = frete.tipoVeiculo.nome;
+                const custoTransportadora = frete.custoTransportadora || frete.tipoVeiculo.valorPadrao;
+                const recebidoCliente = frete.valorTotalCliente || frete.valorTotal || frete.valor || 0;
+                
+                if (!relatorioPorVeiculo[tipo]) {
+                    relatorioPorVeiculo[tipo] = { 
+                        quantidade: 0, 
+                        custoTotal: 0,
+                        receitaTotal: 0 
+                    };
+                }
+                relatorioPorVeiculo[tipo].quantidade++;
+                relatorioPorVeiculo[tipo].custoTotal += custoTransportadora;
+                relatorioPorVeiculo[tipo].receitaTotal += recebidoCliente;
+            });
+            
+            const tbody = document.getElementById('relatorio-por-veiculo');
+            tbody.innerHTML = '';
+            
+            Object.entries(relatorioPorVeiculo).forEach(([tipo, dados]) => {
+                const faturamentoLiquido = dados.receitaTotal - dados.custoTotal;
+                const margem = dados.receitaTotal > 0 ? ((faturamentoLiquido / dados.receitaTotal) * 100) : 0;
+                
+                const tr = document.createElement('tr');
+                
+                // Definir cor da linha baseada na margem
+                let corLinha = '';
+                if (margem >= 20) {
+                    corLinha = 'background-color: #d4edda;';
+                } else if (margem >= 10) {
+                    corLinha = 'background-color: #fff3cd;';
+                } else if (margem < 0) {
+                    corLinha = 'background-color: #f8d7da;';
+                }
+                
+                tr.innerHTML = `
+                    <td style="${corLinha}"><strong>${tipo}</strong></td>
+                    <td style="${corLinha}">${dados.quantidade}</td>
+                    <td style="${corLinha}">${formatarMoeda(dados.custoTotal)}</td>
+                    <td style="${corLinha}">${formatarMoeda(dados.receitaTotal)}</td>
+                    <td style="${corLinha}"><strong style="color: ${faturamentoLiquido >= 0 ? '#27ae60' : '#e74c3c'}">${formatarMoeda(faturamentoLiquido)}</strong></td>
+                    <td style="${corLinha}"><strong style="color: ${margem >= 10 ? '#27ae60' : (margem >= 0 ? '#f39c12' : '#e74c3c')}">${margem.toFixed(1)}%</strong></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Função para exportar CSV
+        function exportarCSV() {
+            const dataInicio = document.getElementById('data-inicio').value;
+            const dataFim = document.getElementById('data-fim').value;
+            const transportadorId = document.getElementById('filtro-transportador').value;
+            const veiculoId = document.getElementById('filtro-veiculo').value;
+            
+            let fretesFiltrados = fretes;
+            
+            if (dataInicio) {
+                fretesFiltrados = fretesFiltrados.filter(f => f.data >= dataInicio);
+            }
+            
+            if (dataFim) {
+                fretesFiltrados = fretesFiltrados.filter(f => f.data <= dataFim);
+            }
+            
+            if (transportadorId) {
+                fretesFiltrados = fretesFiltrados.filter(f => f.transportador.id == transportadorId);
+            }
+            
+            if (veiculoId) {
+                fretesFiltrados = fretesFiltrados.filter(f => f.tipoVeiculo.id == veiculoId);
+            }
+            
+            let csv = 'Data,Transportador,Tipo de Veículo,Custo Transportadora,Qtd NFs,Valor por NF,Total Cliente,Faturamento Liquido,Margem %\n';
+            fretesFiltrados.forEach(frete => {
+                const quantidadeNF = frete.quantidadeNF || 1;
+                const valorPorNF = frete.valorPorNF || (frete.valor ? frete.valor / quantidadeNF : 0);
+                const valorTotalCliente = frete.valorTotalCliente || frete.valorTotal || frete.valor || 0;
+                const custoTransportadora = frete.custoTransportadora || frete.tipoVeiculo.valorPadrao;
+                const faturamentoLiquido = valorTotalCliente - custoTransportadora;
+                const margem = valorTotalCliente > 0 ? ((faturamentoLiquido / valorTotalCliente) * 100) : 0;
+                
+                csv += `${formatarData(frete.data)},${frete.transportador.nome},${frete.tipoVeiculo.nome},${custoTransportadora.toFixed(2)},${quantidadeNF},${valorPorNF.toFixed(2)},${valorTotalCliente.toFixed(2)},${faturamentoLiquido.toFixed(2)},${margem.toFixed(1)}%\n`;
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `relatorio_fretes_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        // Auto-completar baseado no tipo de veículo (apenas para referência)
+        document.getElementById('tipo-veiculo-frete').addEventListener('change', function() {
+            calcularValorTotal();
+        });
+
+        // Função para calcular valor total e status de cobertura
+        function calcularValorTotal() {
+            const quantidade = parseInt(document.getElementById('quantidade-nf').value) || 0;
+            const valorPorNF = parseFloat(document.getElementById('valor-por-nf').value) || 0;
+            const veiculoId = document.getElementById('tipo-veiculo-frete').value;
+            
+            const valorTotalCliente = quantidade * valorPorNF;
+            
+            // Debug - vamos ver os valores
+            console.log('Quantidade:', quantidade, 'Valor por NF:', valorPorNF, 'Total:', valorTotalCliente);
+            
+            // Atualizar o campo de valor total
+            const campoTotal = document.getElementById('valor-total-calculado');
+            if (campoTotal) {
+                campoTotal.value = formatarMoeda(valorTotalCliente);
+            }
+            
+            if (veiculoId && valorPorNF > 0 && quantidade > 0) {
+                const veiculo = tiposVeiculo.find(v => v.id == veiculoId);
+                if (veiculo) {
+                    const custoTransportadora = veiculo.valorPadrao;
+                    const cobreValor = valorTotalCliente >= custoTransportadora;
+                    const diferenca = valorTotalCliente - custoTransportadora;
+                    const statusDiv = document.getElementById('status-cobertura');
+                    
+                    if (cobreValor) {
+                        statusDiv.innerHTML = `✅ LUCRO POSITIVO<br><small>Lucro: ${formatarMoeda(diferenca)}</small><br><small>Custo transportadora: ${formatarMoeda(custoTransportadora)}</small>`;
+                        statusDiv.style.backgroundColor = '#d4edda';
+                        statusDiv.style.color = '#155724';
+                        statusDiv.style.border = '2px solid #27ae60';
+                    } else {
+                        statusDiv.innerHTML = `❌ PREJUÍZO<br><small>Prejuízo: ${formatarMoeda(Math.abs(diferenca))}</small><br><small>Custo transportadora: ${formatarMoeda(custoTransportadora)}</small>`;
+                        statusDiv.style.backgroundColor = '#f8d7da';
+                        statusDiv.style.color = '#721c24';
+                        statusDiv.style.border = '2px solid #e74c3c';
+                    }
+                }
+            } else {
+                const statusDiv = document.getElementById('status-cobertura');
+                if (statusDiv) {
+                    statusDiv.innerHTML = '-';
+                    statusDiv.style.backgroundColor = '#f8f9fa';
+                    statusDiv.style.color = '#333';
+                    statusDiv.style.border = '2px solid #bdc3c7';
+                }
+            }
+        }
+
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Definir valores padrão
+            document.getElementById('data-frete').value = new Date().toISOString().split('T')[0];
+            document.getElementById('quantidade-nf').value = '1';
+            
+            // Adicionar event listeners para cálculo automático
+            document.getElementById('quantidade-nf').addEventListener('input', calcularValorTotal);
+            document.getElementById('valor-por-nf').addEventListener('input', calcularValorTotal);
+            
+            // Tentar carregar dados do Firebase primeiro
+            const carregouFirebase = await carregarDadosFirebase();
+            
+            if (!carregouFirebase) {
+                // Se falhou no Firebase, carregar dados locais
+                carregarDadosLocal();
+            }
+            
+            // Atualizar todas as listas
+            atualizarTodasAsListas();
+            
+            // Dados iniciais se não existirem
+            if (tiposVeiculo.length === 0) {
+                const tiposIniciais = [
+                    { id: 1, nome: 'Van', descricao: 'Van pequena para entregas', valorPadrao: 150.00 },
+                    { id: 2, nome: 'Caminhão 3/4', descricao: 'Caminhão médio', valorPadrao: 250.00 },
+                    { id: 3, nome: 'Truck', descricao: 'Caminhão grande', valorPadrao: 350.00 }
+                ];
+                
+                for (const tipo of tiposIniciais) {
+                    tiposVeiculo.push(tipo);
+                    if (isOnline) {
+                        await salvarTipoVeiculoFirebase(tipo);
+                    }
+                }
+                
+                salvarDados();
+                atualizarListaVeiculos();
+                atualizarSelectVeiculos();
             }
         });
-        
-        // Inicia a aplicação
-        initializeFirebase();
     </script>
 </body>
 </html>
