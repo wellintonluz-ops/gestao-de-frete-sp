@@ -457,13 +457,13 @@
                             </select>
                         </div>
                         <div class="form-field">
-                            <label for="quantidade-nf">Quantidade de NFs</label>
+                            <label for="quantidade-nf">Quantidade de Volumes</label>
                             <input type="number" id="quantidade-nf" min="1" required placeholder="1" value="1">
                         </div>
                         <div class="form-field">
-                            <label for="valor-por-nf">Valor por NF (R$)</label>
+                            <label for="valor-por-nf">Valor médio de frete por volume (R$)</label>
                             <input type="number" id="valor-por-nf" step="0.01" min="0" required placeholder="0,00">
-                            <small style="color: #666; margin-top: 4px;">Valor que você cobra do cliente por NF</small>
+                            <small style="color: #666; margin-top: 4px;">Valor médio cobrado do cliente por volume</small>
                         </div>
                         <div class="form-field">
                             <label for="valor-total-calculado">Valor Total Calculado</label>
@@ -492,8 +492,8 @@
                             <th>Data</th>
                             <th>Transportador</th>
                             <th>Tipo de Veículo</th>
-                            <th>Qtd NFs</th>
-                            <th>Valor/NF Cliente</th>
+                            <th>Qtd Volumes</th>
+                            <th>Valor Médio/Volume</th>
                             <th>Total Cliente</th>
                             <th>Status Faturamento</th>
                             <th>Ações</th>
@@ -1685,7 +1685,7 @@
                 fretesFiltrados = fretesFiltrados.filter(f => f.tipoVeiculo.id == veiculoId);
             }
             
-            let csv = 'Data,Transportador,Tipo de Veículo,Custo Transportadora,Qtd NFs,Valor por NF,Total Cliente,Faturamento Liquido,Margem %\n';
+            let csv = 'Data,Transportador,Tipo de Veículo,Custo Transportadora,Qtd Volumes,Valor Médio por Volume,Total Cliente,Faturamento Liquido,Margem %\n';
             fretesFiltrados.forEach(frete => {
                 const quantidadeNF = frete.quantidadeNF || 1;
                 const valorPorNF = frete.valorPorNF || (frete.valor ? frete.valor / quantidadeNF : 0);
