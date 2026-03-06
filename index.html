@@ -462,7 +462,7 @@
                         </div>
                         <div class="form-field">
                             <label for="valor-por-nf">Valor médio de frete por volume (R$)</label>
-                            <input type="number" id="valor-por-nf" step="0.0001" min="0" required placeholder="0,0000">
+                            <input type="number" id="valor-por-nf" step="0.00001" min="0" required placeholder="0,00000">
                             <small style="color: #666; margin-top: 4px;">Valor médio cobrado do cliente por volume</small>
                         </div>
                         <div class="form-field">
@@ -522,7 +522,7 @@
                         </div>
                         <div class="form-field">
                             <label for="valor-padrao-veiculo">Valor Padrão (R$)</label>
-                            <input type="number" id="valor-padrao-veiculo" step="0.0001" min="0" placeholder="0,0000">
+                            <input type="number" id="valor-padrao-veiculo" step="0.01" min="0" placeholder="0,00">
                         </div>
                     </div>
                     <button type="submit" class="btn btn-success">Cadastrar Tipo de Veículo</button>
@@ -1157,9 +1157,7 @@
         function formatarMoeda(valor) {
             return new Intl.NumberFormat('pt-BR', {
                 style: 'currency',
-                currency: 'BRL',
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 4
+                currency: 'BRL'
             }).format(valor);
         }
 
@@ -1696,7 +1694,7 @@
                 const faturamentoLiquido = valorTotalCliente - custoTransportadora;
                 const margem = valorTotalCliente > 0 ? ((faturamentoLiquido / valorTotalCliente) * 100) : 0;
                 
-                csv += `${formatarData(frete.data)},${frete.transportador.nome},${frete.tipoVeiculo.nome},${custoTransportadora.toFixed(4)},${quantidadeNF},${valorPorNF.toFixed(4)},${valorTotalCliente.toFixed(4)},${faturamentoLiquido.toFixed(4)},${margem.toFixed(1)}%\n`;
+                csv += `${formatarData(frete.data)},${frete.transportador.nome},${frete.tipoVeiculo.nome},${custoTransportadora.toFixed(2)},${quantidadeNF},${valorPorNF.toFixed(2)},${valorTotalCliente.toFixed(2)},${faturamentoLiquido.toFixed(2)},${margem.toFixed(1)}%\n`;
             });
             
             const blob = new Blob([csv], { type: 'text/csv' });
